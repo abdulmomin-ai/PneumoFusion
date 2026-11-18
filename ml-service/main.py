@@ -26,7 +26,7 @@ app.add_middleware(
 # ---------------------------------------------------------
 import os
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+from config import GROQ_API_KEY
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_INSTRUCTION = """
