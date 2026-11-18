@@ -1,0 +1,265 @@
+import { Link } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import StatCard from '../components/StatCard';
+import AssistantCard from '../components/AssistantCard';
+import { useState, useRef, useEffect } from 'react';
+
+const BrainIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M9 4a3 3 0 0 0-3 3v1a3 3 0 0 0-1 5.5V15a3 3 0 0 0 3 3h1M15 4a3 3 0 0 1 3 3v1a3 3 0 0 1 1 5.5V15a3 3 0 0 1-3 3h-1M9 4v14M15 4v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const ScanLineIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
+    <line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const LungsIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M12 3v6M12 9c-2 0-4 2-4 6v3a2 2 0 0 1-4 0v-5c0-2 1-4 4-4M12 9c2 0 4 2 4 6v3a2 2 0 0 0 4 0v-5c0-2-1-4-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const BoltIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+  </svg>
+);
+
+const TargetIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="12" r="1" fill="currentColor" />
+  </svg>
+);
+
+const ChartIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <rect x="4" y="12" width="4" height="8" rx="1" stroke="currentColor" strokeWidth="2" />
+    <rect x="10" y="7" width="4" height="13" rx="1" stroke="currentColor" strokeWidth="2" />
+    <rect x="16" y="3" width="4" height="17" rx="1" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+export default function Home({ user, onLogout, dark, setDark }) {
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+
+  // Draggable button position - pehli baar bottom-right corner me
+  const FAB_SIZE = 104; // h-26 w-26 = 104px
+  const [btnPos, setBtnPos] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return { x: window.innerWidth - FAB_SIZE - 16, y: window.innerHeight - FAB_SIZE -16 };
+    }
+    return { x: 0, y: 0 };
+  });
+  const dragRef = useRef({ dragging: false, moved: false, offsetX: 0, offsetY: 0 });
+
+  function handlePointerDown(e) {
+    const point = e.touches ? e.touches[0] : e;
+    dragRef.current.dragging = true;
+    dragRef.current.moved = false;
+    dragRef.current.offsetX = point.clientX - btnPos.x;
+    dragRef.current.offsetY = point.clientY - btnPos.y;
+  }
+
+  function handlePointerMove(e) {
+    if (!dragRef.current.dragging) return;
+    const point = e.touches ? e.touches[0] : e;
+    dragRef.current.moved = true;
+
+    const newX = Math.min(Math.max(0, point.clientX - dragRef.current.offsetX), window.innerWidth - FAB_SIZE);
+    const newY = Math.min(Math.max(0, point.clientY - dragRef.current.offsetY), window.innerHeight - FAB_SIZE);
+    setBtnPos({ x: newX, y: newY });
+  }
+
+  function handlePointerUp() {
+    dragRef.current.dragging = false;
+  }
+
+  function handleButtonClick() {
+    if (dragRef.current.moved) {
+      dragRef.current.moved = false;
+      return;
+    }
+    setMobileChatOpen(true);
+  }
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+    window.addEventListener('touchmove', handlePointerMove, { passive: false });
+    window.addEventListener('touchend', handlePointerUp);
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', handlePointerUp);
+      window.removeEventListener('touchmove', handlePointerMove);
+      window.removeEventListener('touchend', handlePointerUp);
+    };
+  }, [btnPos]);
+
+  return (
+    <div className="min-h-screen relative">
+      {/* Aurora background blobs */}
+      <div className="aurora-bg">
+        <div className="aurora-blob one" />
+        <div className="aurora-blob two" />
+        <div className="aurora-blob three" />
+      </div>
+
+      <div className="relative z-10">
+        <Navbar user={user} onLogout={onLogout} dark={dark} setDark={setDark} />
+
+        <main className="mx-auto max-w-7xl px-5 md:px-8 pt-10 pb-16">
+          {/* Greeting */}
+          <div className="mb-8">
+            <span className="inline-block rounded-full bg-primary text-white text-xs font-semibold px-4 py-1.5 mb-3">
+              AI Smarter
+            </span>
+            <h1 className="font-display text-3xl md:text-[2.75rem] font-bold text-ink dark:text-white leading-tight">
+              Lung Health, Read by AI
+            </h1>
+            <p className="text-muted mt-2 max-w-md">
+              Upload a chest X-ray and get an AI-assisted pneumonia screening in seconds.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-[280px_1fr_300px] gap-6">
+            {/* LEFT COLUMN */}
+            <div className="flex flex-col gap-5 order-2 md:order-1 h-full">
+              <StatCard
+                icon={<TargetIcon />}
+                label="AI Detection Confidence"
+                value="94.55%"
+                unit=""
+                tint="purple"
+              >
+                <div className="mt-3 h-2 rounded-full bg-black/5 dark:bg-white/10 overflow-hidden">
+                  <div className="h-full w-[94.55%] rounded-full bg-gradient-to-r from-primary to-primary-dark" />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted mt-1">
+                  <span>0%</span><span>100%</span>
+                </div>
+              </StatCard>
+
+             <StatCard
+  icon={<BrainIcon />}
+  label="Powered By"
+  value=""
+  unit=""
+  tint="teal"
+>
+  <div className="flex flex-col gap-2.5 mt-3">
+    {[
+      { icon: <BrainIcon />, text: 'EfficientNet-B2' },
+      { icon: <ScanLineIcon />, text: 'Grad-CAM Explainable AI' },
+      { icon: <BoltIcon />, text: 'Real-time Analysis' },
+      { icon: <LungsIcon />, text: 'ZeroGPU Hosted' },
+    ].map((item, i) => (
+      <div key={i} className="flex items-center gap-2.5 bg-black/5 dark:bg-white/5 rounded-xl px-3 py-2">
+        <div className="h-6 w-6 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0">
+          {item.icon}
+        </div>
+        <span className="text-[11px] font-medium text-ink dark:text-white">{item.text}</span>
+      </div>
+    ))}
+  </div>
+</StatCard>
+
+              <Link
+                to={user ? '/results' : '/register'}
+                className="glossy-btn mt-2 rounded-full text-white text-center font-semibold text-sm uppercase tracking-wider px-6 py-4 transition-transform hover:-translate-y-0.5"
+                style={{
+                  background: 'linear-gradient(135deg, #A78BFA 0%, #7C6FF0 50%, #67E8F9 100%)',
+                  boxShadow: '0 8px 28px rgba(124, 111, 240, 0.5), inset 0 1px 1px rgba(255,255,255,0.5)',
+                }}
+              >
+                <span className="relative z-[2]">Analyze a scan</span>
+              </Link>
+            </div>
+
+            {/* CENTER: Lung image */}
+            <div className="relative order-1 md:order-2 flex items-center justify-center min-h-[380px] mx-auto w-full">
+              <div className="absolute inset-0 bg-gradient-radial from-primary/15 via-coral/10 to-transparent rounded-full blur-3xl" />
+              <div className="relative w-80 md:w-[26rem]">
+                <img
+                  src="/lung1.png"
+                  alt="Lung illustration"
+                  className="w-full h-auto drop-shadow-[0_20px_50px_rgba(124,111,240,0.35)]"
+                />
+              </div>
+
+              {/* Floating labels */}
+              <div className="hidden md:block absolute left-2 top-[38%]">
+                <div className="glass-card tint-purple rounded-2xl px-4 py-2.5 text-xs w-36">
+                  <div className="relative z-[2] text-muted">Oxygen Saturation</div>
+                  <div className="relative z-[2] text-ink dark:text-white font-semibold">95%</div>
+                </div>
+              </div>
+
+              <div className="hidden md:block absolute right-2 top-[55%]">
+                <div className="glass-card tint-teal rounded-2xl px-4 py-2.5 text-xs w-36">
+                  <div className="relative z-[2] text-muted">Respiratory Rate</div>
+                  <div className="relative z-[2] text-ink dark:text-white font-semibold">12-20/min</div>
+                </div>
+              </div>
+
+              <div className="hidden md:block absolute left-1/2 -translate-x-1/2 bottom-0">
+                <div className="glass-card tint-pink rounded-2xl px-4 py-2.5 text-xs w-36">
+                  <div className="relative z-[2] text-muted">Airway Clarity</div>
+                  <div className="relative z-[2] text-ink dark:text-white font-semibold">Normal</div>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN */}
+            <div className="hidden md:flex flex-col gap-5 order-3 h-full">
+              <AssistantCard userName={user?.name} />
+            </div>
+          </div>
+
+          <p className="text-center text-[11px] text-muted mt-14">
+            PneumoFusion provides AI-assisted screening support and does not replace professional medical diagnosis.
+          </p>
+        </main>
+
+        {/* Mobile FAB - sirf image, draggable, koi background color nahi */}
+        <button
+  onMouseDown={handlePointerDown}
+  onTouchStart={handlePointerDown}
+  onClick={handleButtonClick}
+  style={{ left: `${btnPos.x}px`, top: `${btnPos.y}px` }}
+  className="md:hidden fixed h-[104px] w-[104px] flex items-center justify-center z-40 touch-none cursor-grab active:cursor-grabbing"
+  aria-label="Open assistant"
+>
+  <img
+    src="/chat_icon2.png"
+    alt="Chat"
+    className="h-full w-full object-contain pointer-events-none"
+  />
+</button>
+
+        {/* Mobile chat overlay */}
+        {mobileChatOpen && (
+          <div className="md:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end justify-center p-3">
+            <div className="w-full max-w-md">
+              <div className="flex justify-end mb-2">
+                <button
+                  onClick={() => setMobileChatOpen(false)}
+                  className="h-9 w-9 rounded-full bg-white dark:bg-white/10 flex items-center justify-center text-ink dark:text-white shadow-lg"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <AssistantCard userName={user?.name} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
