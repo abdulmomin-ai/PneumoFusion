@@ -1,14 +1,17 @@
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 import io
 import base64
 import logging
-import os
-
-import cv2
-import numpy as np
-import requests
+import gc
 import torch
 import torch.nn as nn
 import timm
+import cv2
+import numpy as np
+import requests
 from PIL import Image
 from torchvision import transforms
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -64,7 +67,7 @@ class ChatRequest(BaseModel):
 # ---------------------------------------------------------
 # EFFICIENTNET-B2 MODEL SETUP & GRAD-CAM
 # ---------------------------------------------------------
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 MODEL_PATH = "best_model.pth"
 DRIVE_FILE_ID = "1jn6n-yIH9_uF8n73SruMZx1Boffa-5qg"
@@ -76,38 +79,44 @@ def ensure_model():
         logger.info("Model file found locally: %s", MODEL_PATH)
         return
 
-    logger.info("Model file not found locally. Downloading from Google Drive...")
+    logger.info("Downloading model from Google Drive...")
     try:
         import gdown
         gdown.download(
             f"https://drive.google.com/uc?id={DRIVE_FILE_ID}",
             MODEL_PATH,
             quiet=False,
+            fuzzy=True
         )
+        gc.collect()
     except Exception as exc:  # noqa: BLE001
-        logger.error("Failed to download model from Google Drive: %s", exc)
+        logger.error("Failed to download model: %s", exc)
         raise RuntimeError(f"Failed to download model: {exc}") from exc
 
     if not os.path.exists(MODEL_PATH):
-        raise RuntimeError(f"Model file {MODEL_PATH} still missing after download attempt")
+        raise RuntimeError("Model file missing after download attempt")
 
     logger.info("Model downloaded successfully: %s", MODEL_PATH)
 
 
 def load_model():
-    model = timm.create_model("efficientnet_b2", pretrained=False)
-    num_features = model.classifier.in_features
-    model.classifier = nn.Sequential(
-        nn.Dropout(0.4),
-        nn.Linear(num_features, 256),
-        nn.ReLU(),
-        nn.Dropout(0.2),
-        nn.Linear(256, 2),
-    )
-    model.load_state_dict(torch.load("best_model.pth", map_location=device))
-    model.to(device)
-    model.eval()
-    return model
+    with torch.no_grad():
+        model = timm.create_model("efficientnet_b2", pretrained=False)
+        num_features = model.classifier.in_features
+        model.classifier = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(num_features, 256),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(256, 2),
+        )
+        # Using map_location='cpu' and weights_only=False for older PyTorch compatibility
+        state_dict = torch.load(MODEL_PATH, map_location="cpu")
+        model.load_state_dict(state_dict)
+        model.eval()
+        del state_dict
+        gc.collect()
+        return model
 
 ensure_model()
 model = load_model()
