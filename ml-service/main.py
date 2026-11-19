@@ -6,6 +6,7 @@ import io
 import base64
 import logging
 import gc
+import threading
 import torch
 import torch.nn as nn
 import timm
@@ -113,8 +114,34 @@ def load_model():
         gc.collect()
         return model
 
-ensure_model()
-model = load_model()
+model_ready = False
+model_lock = threading.Lock()
+model_container = {}
+
+def model_initializer():
+    """Initialize model in a background thread and set model_ready flag."""
+    global model_ready, model_container
+    try:
+        ensure_model()
+        with model_lock:
+            model_container['model'] = load_model()
+            model_ready = True
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"Model initialization failed: {exc}")
+        model_ready = False
+
+def start_model_thread():
+    """Start model initialization in background so Uvicorn binds port immediately."""
+    t = threading.Thread(target=model_initializer, daemon=True)
+    t.start()
+
+start_model_thread()
+
+@app.get("/")
+async def health_check():
+    """Simple health check endpoint."""
+    return {"status": "ok", "model_ready": model_ready}
+
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -200,6 +227,8 @@ def generate_gradcam(img_pil, tensor, target_class):
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
+    if not model_ready:
+        raise HTTPException(status_code=503, detail="Model not ready yet")
     try:
         contents = await file.read()
         img = Image.open(io.BytesIO(contents)).convert("RGB")
@@ -229,12 +258,16 @@ async def predict(file: UploadFile = File(...)):
             "heatmap_image_base64": heatmap_b64,
             "circled_image_base64": circled_b64,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/chat")
 async def chat_with_assistant(request: ChatRequest):
+    if not model_ready:
+        raise HTTPException(status_code=503, detail="Model not ready yet")
     try:
         url = "https://api.groq.com/openai/v1/chat/completions"
 
