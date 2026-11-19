@@ -1,5 +1,8 @@
 import io
 import base64
+import logging
+import os
+
 import cv2
 import numpy as np
 import requests
@@ -11,6 +14,9 @@ from torchvision import transforms
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="PneumoFusion API", version="2.0")
 
@@ -60,6 +66,34 @@ class ChatRequest(BaseModel):
 # ---------------------------------------------------------
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+MODEL_PATH = "best_model.pth"
+DRIVE_FILE_ID = "1jn6n-yIH9_uF8n73SruMZx1Boffa-5qg"
+
+
+def ensure_model():
+    """Download best_model.pth from Google Drive if it is not present locally."""
+    if os.path.exists(MODEL_PATH):
+        logger.info("Model file found locally: %s", MODEL_PATH)
+        return
+
+    logger.info("Model file not found locally. Downloading from Google Drive...")
+    try:
+        import gdown
+        gdown.download(
+            f"https://drive.google.com/uc?id={DRIVE_FILE_ID}",
+            MODEL_PATH,
+            quiet=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Failed to download model from Google Drive: %s", exc)
+        raise RuntimeError(f"Failed to download model: {exc}") from exc
+
+    if not os.path.exists(MODEL_PATH):
+        raise RuntimeError(f"Model file {MODEL_PATH} still missing after download attempt")
+
+    logger.info("Model downloaded successfully: %s", MODEL_PATH)
+
+
 def load_model():
     model = timm.create_model("efficientnet_b2", pretrained=False)
     num_features = model.classifier.in_features
@@ -75,6 +109,7 @@ def load_model():
     model.eval()
     return model
 
+ensure_model()
 model = load_model()
 
 transform = transforms.Compose([
