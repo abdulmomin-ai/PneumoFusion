@@ -19,6 +19,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from config import GROQ_API_KEY
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -34,9 +36,6 @@ app.add_middleware(
 # ---------------------------------------------------------
 # GROQ API CONFIGURATION
 # ---------------------------------------------------------
-import os
-
-from config import GROQ_API_KEY
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 SYSTEM_INSTRUCTION = """
@@ -83,9 +82,9 @@ def ensure_model():
     logger.info("Downloading model from Google Drive...")
     try:
         import gdown
-        gdown.download(id="1jn6n-yIH9_uF8n73SruMZx1Boffa-5qg", output=str(MODEL_PATH), quiet=False)
+        gdown.download(id=DRIVE_FILE_ID, output=str(MODEL_PATH), quiet=False)
         gc.collect()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.error("Failed to download model: %s", exc)
         raise RuntimeError(f"Failed to download model: {exc}") from exc
 
@@ -97,45 +96,60 @@ def ensure_model():
 
 def load_model():
     with torch.no_grad():
-        model = timm.create_model("efficientnet_b2", pretrained=False)
-        num_features = model.classifier.in_features
-        model.classifier = nn.Sequential(
+        m = timm.create_model("efficientnet_b2", pretrained=False)
+        num_features = m.classifier.in_features
+        m.classifier = nn.Sequential(
             nn.Dropout(0.4),
             nn.Linear(num_features, 256),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(256, 2),
         )
-        # Using map_location='cpu' and weights_only=False for older PyTorch compatibility
         state_dict = torch.load(MODEL_PATH, map_location="cpu")
-        model.load_state_dict(state_dict)
-        model.eval()
+        m.load_state_dict(state_dict)
+        m.eval()
         del state_dict
         gc.collect()
-        return model
+        return m
+
 
 model_ready = False
 model_lock = threading.Lock()
 model_container = {}
 
+
 def model_initializer():
     """Initialize model in a background thread and set model_ready flag."""
-    global model_ready, model_container
+    global model_ready
     try:
         ensure_model()
+        loaded = load_model()
         with model_lock:
-            model_container['model'] = load_model()
+            model_container["model"] = loaded
             model_ready = True
-    except Exception as exc:  # noqa: BLE001
-        logger.error(f"Model initialization failed: {exc}")
-        model_ready = False
+    except Exception as exc:
+        logger.error("Model initialization failed: %s", exc)
+        with model_lock:
+            model_ready = False
+
+
+def get_model():
+    """Return initialized model safely or raise HTTPException if not ready."""
+    with model_lock:
+        m = model_container.get("model")
+    if not model_ready or m is None:
+        raise HTTPException(status_code=503, detail="Model not ready yet")
+    return m
+
 
 def start_model_thread():
     """Start model initialization in background so Uvicorn binds port immediately."""
     t = threading.Thread(target=model_initializer, daemon=True)
     t.start()
 
+
 start_model_thread()
+
 
 @app.get("/")
 async def health_check():
@@ -149,10 +163,11 @@ transform = transforms.Compose([
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 ])
 
-def generate_gradcam(img_pil, tensor, target_class):
+
+def generate_gradcam(m, img_pil, tensor, target_class):
     activations = []
     gradients = []
-    target_layer = model.conv_head
+    target_layer = m.conv_head
 
     def forward_hook(module, inp, out):
         activations.append(out)
@@ -163,8 +178,8 @@ def generate_gradcam(img_pil, tensor, target_class):
     fh = target_layer.register_forward_hook(forward_hook)
     bh = target_layer.register_full_backward_hook(backward_hook)
 
-    model.zero_grad()
-    output = model(tensor)
+    m.zero_grad()
+    output = m(tensor)
     score = output[0, target_class]
     score.backward()
 
@@ -193,15 +208,15 @@ def generate_gradcam(img_pil, tensor, target_class):
     circled_img = orig_np.copy()
     mask = (cam_resized > 0.65).astype(np.uint8) * 255
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
+
     valid_contours = []
     for cnt in contours:
         area = cv2.contourArea(cnt)
         if area >= 150:
             valid_contours.append((cnt, area))
-            
+
     valid_contours.sort(key=lambda x: x[1], reverse=True)
-    
+
     drawn_count = 0
     for cnt, area in valid_contours:
         if drawn_count >= 2:
@@ -227,15 +242,16 @@ def generate_gradcam(img_pil, tensor, target_class):
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    if not model_ready:
-        raise HTTPException(status_code=503, detail="Model not ready yet")
+    m = get_model()
     try:
         contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="No file uploaded")
         img = Image.open(io.BytesIO(contents)).convert("RGB")
         tensor = transform(img).unsqueeze(0).to(device)
 
         with torch.no_grad():
-            probs = torch.softmax(model(tensor), dim=1)[0]
+            probs = torch.softmax(m(tensor), dim=1)[0]
 
         classes = ["NORMAL", "PNEUMONIA"]
         pred_idx = probs.argmax().item()
@@ -246,7 +262,7 @@ async def predict(file: UploadFile = File(...)):
         confidence = round(probs[pred_idx].item() * 100, 1)
 
         heatmap_b64, circled_b64 = generate_gradcam(
-            img, tensor.clone().detach().requires_grad_(True), pred_idx
+            m, img, tensor.clone().detach().requires_grad_(True), pred_idx
         )
 
         return {
@@ -261,13 +277,12 @@ async def predict(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Error during /predict handling")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 
 @app.post("/chat")
 async def chat_with_assistant(request: ChatRequest):
-    if not model_ready:
-        raise HTTPException(status_code=503, detail="Model not ready yet")
     try:
         url = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -275,35 +290,41 @@ async def chat_with_assistant(request: ChatRequest):
             "model": GROQ_MODEL,
             "messages": [
                 {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": request.message}
-            ]
+                {"role": "user", "content": request.message},
+            ],
         }
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {GROQ_API_KEY}"
+            "Authorization": f"Bearer {GROQ_API_KEY}",
         }
 
         response = requests.post(url, json=payload, headers=headers, timeout=30)
 
-        # Agar Groq API ki taraf se koi error aaye
         if response.status_code != 200:
-            print(f"Groq API Error Response: {response.text}")
-            raise HTTPException(status_code=response.status_code, detail=f"Groq API Error: {response.text}")
+            logger.error("Groq API Error Response: %s", response.text)
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Groq API Error: {response.text}",
+            )
 
         res_data = response.json()
 
-        # Safe extraction of text response
         try:
             ai_reply = res_data["choices"][0]["message"]["content"]
         except (KeyError, IndexError) as parsing_error:
-            print(f"Parsing Error: {res_data}")
-            raise HTTPException(status_code=500, detail=f"Failed to parse AI response: {str(parsing_error)}")
+            logger.error("Parsing Error: %s", res_data)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to parse AI response: {str(parsing_error)}",
+            )
 
         return {
             "status": "success",
-            "reply": ai_reply
+            "reply": ai_reply,
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Server Exception: {str(e)}")
+        logger.exception("Server Exception in /chat")
         raise HTTPException(status_code=500, detail=str(e))
