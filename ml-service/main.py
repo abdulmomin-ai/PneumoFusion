@@ -82,12 +82,7 @@ def ensure_model():
     logger.info("Downloading model from Google Drive...")
     try:
         import gdown
-        gdown.download(
-            f"https://drive.google.com/uc?id={DRIVE_FILE_ID}",
-            MODEL_PATH,
-            quiet=False,
-            fuzzy=True
-        )
+        gdown.download(id="1jn6n-yIH9_uF8n73SruMZx1Boffa-5qg", output=str(MODEL_PATH), quiet=False)
         gc.collect()
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to download model: %s", exc)
