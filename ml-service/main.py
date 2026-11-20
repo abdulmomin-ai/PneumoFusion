@@ -60,8 +60,25 @@ IMPORTANT SAFETY RULES:
 - Never diagnose; instead explain possibilities and recommend consulting a physician for confirmation.
 """
 
+SYSTEM_PROMPT = """
+You are the PneumoFusion Assistant, an AI assistant integrated into the PneumoFusion chest X-ray screening platform.
+
+PneumoFusion is an AI chest X-ray screening tool — it is NOT a medical diagnosis. It uses an EfficientNet-B2 model (~8 million parameters) trained to classify chest X-rays into two categories: NORMAL or PNEUMONIA. The model also generates a Grad-CAM heatmap (from the conv_head layer) and up to two red region circles highlighting the areas it focused on most.
+
+CRITICAL SAFETY RULE:
+- Always remind the user that PneumoFusion is an AI screening tool, not a substitute for a qualified doctor's evaluation.
+- If a user reports breathing trouble, chest pain, high fever, or low oxygen levels, advise them to seek urgent medical care immediately and consult a qualified doctor.
+- Never provide a definitive diagnosis; explain possibilities only and recommend consulting a physician for confirmation.
+"""
+
+from typing import Optional
+
 class ChatRequest(BaseModel):
     message: str
+    prediction: Optional[str] = None
+    confidence: Optional[float] = None
+    normal_prob: Optional[float] = None
+    pneumonia_prob: Optional[float] = None
 
 
 # ---------------------------------------------------------
@@ -286,12 +303,20 @@ async def chat_with_assistant(request: ChatRequest):
     try:
         url = "https://api.groq.com/openai/v1/chat/completions"
 
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+        ]
+
+        if request.prediction:
+            context = f"\nCurrent Scan Context: Prediction={request.prediction}, Confidence={request.confidence}%, NormalProb={request.normal_prob}%, PneumoniaProb={request.pneumonia_prob}%"
+            messages[0]["content"] += context
+
+        messages.append({"role": "user", "content": request.message})
+
         payload = {
             "model": GROQ_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": request.message},
-            ],
+            "messages": messages,
         }
 
         headers = {
