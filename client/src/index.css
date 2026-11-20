@@ -3,6 +3,17 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Register a "print:" variant so utilities like print:hidden only apply during
+   window.print() / "Save as PDF". Wrapped in @media print so normal screen
+   rendering is unaffected. */
+@custom-variant print {
+  @media print {
+    & {
+      @slot;
+    }
+  }
+}
+
 @theme {
   --color-primary: #7C6FF0;
   --color-primary-dark: #6552E0;
@@ -24,6 +35,91 @@ body {
 
 .dark body {
   background: #14121F;
+}
+
+/* ---------- Print styles: report-only ---------- */
+@media print {
+  /* Force a clean white page; kill the animated aurora blobs and glass tints. */
+  body {
+    background: #ffffff !important;
+    color: #1E1B2E !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+  }
+  .aurora-bg,
+  .aurora-blob {
+    display: none !important;
+  }
+
+  /* Non-report UI must never appear in the printed report. */
+  .print\:hidden,
+  .print\:hidden * {
+    display: none !important;
+  }
+
+  /* Compact print padding and margins */
+  main {
+    padding-top: 4px !important;
+    padding-bottom: 10px !important;
+    max-width: 100% !important;
+  }
+
+  /* Crisp borders instead of heavy shadows/blur */
+  .glass-card,
+  .glass-panel {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    background: #f8fafc !important; /* Soft medical tint */
+    border: 1px solid #cbd5e1 !important; /* Muted slate border */
+    border-radius: 12px !important;
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+    break-inside: avoid !important;
+  }
+
+  /* Section-specific tints */
+  .glass-card.tint-purple { background: #f4f7f9 !important; }
+  .glass-card.tint-teal { background: #f0fdfa !important; border-color: #99f6e4 !important; }
+  .glass-card.tint-pink { background: #fef2f2 !important; border-color: #fecaca !important; }
+
+  /* Keep headings compact and clean with medical accents */
+  h1 {
+    font-size: 20px !important;
+    margin-bottom: 4px !important;
+    color: #334155 !important; /* Muted slate */
+    border-bottom: 2px solid #cbd5e1 !important;
+    padding-bottom: 4px !important;
+  }
+  h3 {
+    font-size: 13px !important;
+    margin-bottom: 6px !important;
+    color: #0f766e !important; /* Muted teal */
+    border-left: 3px solid #0f766e !important;
+    padding-left: 8px !important;
+  }
+  p, span, div { font-size: 11px !important; }
+
+  /* Soft Status Badges in print */
+  .print-status-badge {
+    padding: 2px 8px !important;
+    border-radius: 9999px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    font-size: 14px !important;
+  }
+  .print-status-normal { background: #d1fae5 !important; color: #065f46 !important; border: 1px solid #6ee7b7 !important; }
+  .print-status-pneumonia { background: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; }
+
+  /* Constrain all X-ray and Grad-CAM images cleanly */
+  img {
+    break-inside: avoid !important;
+    max-height: 175px !important;
+    width: auto !important;
+    max-width: 100% !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+  }
 }
 
 /* ---------- Aurora background blobs ---------- */
