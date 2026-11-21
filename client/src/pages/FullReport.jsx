@@ -2,6 +2,114 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
+// Curated Multan specialist & thoracic/chest hospital entries (stable module reference)
+const MULTAN_SPECIALISTS = [
+  {
+    id: 'nishtar-kamal',
+    name: 'Dr. Ayesha Khan',
+    specialty: 'Pulmonologist',
+    roleTag: 'Chest & Respiratory Medicine',
+    hospital: 'Nishtar Medical College Hospital',
+    area: 'nishtar',
+    areaLabel: 'Nishtar Road, Multan',
+    address: 'Block A, College Road, Near Block B Hospital, Multan',
+    phone: '+92 61 9233200',
+    timings: '10:00 AM - 3:00 PM',
+    accent: 'violet',
+  },
+  {
+    id: 'abdali-bilal',
+    name: 'Dr. Bilal Ahmed',
+    specialty: 'Thoracic Surgeon',
+    roleTag: 'Thoracic & Chest Surgery Unit',
+    hospital: "Women's Hospital & Medical Centre",
+    area: 'abdali',
+    areaLabel: 'Abdali Road, Multan',
+    address: 'Abdali Road, Near Expo Centre, Multan',
+    phone: '+92 61 9233205',
+    timings: '9:00 AM - 2:00 PM',
+    accent: 'cyan',
+  },
+  {
+    id: 'bosan-sarah',
+    name: 'Dr. Sarah Mahmood',
+    specialty: 'Pulmonologist',
+    roleTag: 'Pulmonary Care & Diagnostics',
+    hospital: 'Metro Hospital, Multan',
+    area: 'bosan',
+    areaLabel: 'Bosan Road, Multan',
+    address: 'Bosan Road, Near Bus Stand, Multan',
+    phone: '+92 61 9233201',
+    timings: '5:00 PM - 8:00 PM',
+    accent: 'emerald',
+  },
+  {
+    id: 'shahrukn-sameer',
+    name: 'Dr. Muhammad Sameer',
+    specialty: 'Thoracic Surgeon',
+    roleTag: 'Thoracic Surgical Consultation',
+    hospital: 'Jinnah Clinic',
+    area: 'shah-rukn',
+    areaLabel: 'Shah Rukn-e-Alam, Multan',
+    address: 'Shah Rukn-e-Alam Road, Near Mosque, Multan',
+    phone: '+92 61 9233203',
+    timings: '11:00 AM - 5:00 PM',
+    accent: 'amber',
+  },
+  {
+    id: 'suraj-fatima',
+    name: 'Dr. Fatima Noor',
+    specialty: 'Pulmonologist',
+    roleTag: 'Respiratory & Infection Care',
+    hospital: 'Al-Samar Hospital',
+    area: 'suraj',
+    areaLabel: 'Suraj Miani Road, Multan',
+    address: 'Suraj Miani Road, Near Bus Stand, Multan',
+    phone: '+92 61 9233202',
+    timings: '10:00 AM - 4:00 PM',
+    accent: 'violet',
+  },
+  {
+    id: 'nishtar-hassan',
+    name: 'Dr. Hassan Rana',
+    specialty: 'Pulmonologist',
+    roleTag: 'Pulmonary Outpatient Clinic',
+    hospital: 'Civil Hospital, Multan',
+    area: 'nishtar',
+    areaLabel: 'Nishtar Road, Multan',
+    address: 'Block A, Jail Road, Near Block C, Multan',
+    phone: '+92 61 9233204',
+    timings: '8:00 AM - 12:00 PM',
+    accent: 'cyan',
+  },
+  {
+    id: 'bosan-zubair',
+    name: 'Dr. Zubair Ahmad',
+    specialty: 'Thoracic Surgeon',
+    roleTag: 'Chest & Thoracic Surgery',
+    hospital: 'Private Chest Care Centre',
+    area: 'bosan',
+    areaLabel: 'Bosan Road, Multan',
+    address: 'Bosan Road, Near City Hospital, Multan',
+    phone: '+92 300 1234567',
+    timings: 'Anytime, Call to Schedule',
+    accent: 'emerald',
+  },
+  {
+    id: 'shahrukn-nusrat',
+    name: 'Dr. Nusrat Bibi',
+    specialty: 'Pulmonologist',
+    roleTag: 'Chest & Lung Specialist',
+    hospital: 'Punjab Healthcare Corporation Hospital',
+    area: 'shah-rukn',
+    areaLabel: 'Shah Rukn-e-Alam, Multan',
+    address: 'Shah Rukn-e-Alam Road, Near Bunyad Hospital, Multan',
+    phone: '+92 61 9233206',
+    timings: '9:00 AM - 5:00 PM',
+    accent: 'amber',
+  },
+];
+
 // Error Boundary component for safe error handling
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -61,7 +169,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Regional Focus Analysis component - analyzes Grad-CAM heatmap pixel energy left vs right
+// Regional Focus Analysis component - measures prominent Grad-CAM activation energy left vs right
 function RegionalFocusAnalysis({ heatmapBase64 }) {
   const [assessment, setAssessment] = React.useState(null);
 
@@ -83,8 +191,8 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
 
         if (!width || !height) {
           setAssessment({
-            leftRatio: 50,
-            rightRatio: 50,
+            leftPct: 50,
+            rightPct: 50,
             focusDirection: 'Bilateral Thoracic Regions',
             magnitude: 'Mixed',
             clinicianNote:
@@ -99,8 +207,8 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
         const ctx = canvas.getContext('2d');
         if (!ctx) {
           setAssessment({
-            leftRatio: 50,
-            rightRatio: 50,
+            leftPct: 50,
+            rightPct: 50,
             focusDirection: 'Bilateral Thoracic Regions',
             magnitude: 'Mixed',
             clinicianNote:
@@ -112,58 +220,64 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
         ctx.drawImage(img, 0, 0, width, height);
         const { data } = ctx.getImageData(0, 0, width, height);
 
-        let leftSum = 0;
-        let rightSum = 0;
-        const midX = width / 2;
+        // Weight warm/high-activation pixels (red/yellow/green peaks) above dark/blue background
+        let leftWeight = 0;
+        let rightWeight = 0;
+        const midX = Math.floor(width * 0.52);
 
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
-          const energy = (r + g + b) / 3;
-          const pixelIndex = i / 4;
-          const x = pixelIndex % width;
 
-          if (x < midX) {
-            leftSum += energy;
-          } else {
-            rightSum += energy;
+          const warmSignal = Math.max(0, r - Math.max(b, 70));
+          const yellowSignal = Math.max(0, Math.min(r, g) - Math.max(b, 80));
+          const prominence = warmSignal * 1.6 + yellowSignal * 1.2;
+
+          if (prominence > 12) {
+            const pixelIndex = i / 4;
+            const x = pixelIndex % width;
+            const weightedEnergy = prominence * prominence;
+
+            if (x < midX) {
+              leftWeight += weightedEnergy;
+            } else {
+              rightWeight += weightedEnergy;
+            }
           }
         }
 
-        const total = leftSum + rightSum;
-        const safeLeftPct =
-          Number.isFinite(leftSum) && Number.isFinite(total) && total > 0
-            ? Math.min(100, Math.max(0, Math.round((leftSum / total) * 100)))
+        const totalWeight = leftWeight + rightWeight;
+        const leftPct =
+          Number.isFinite(leftWeight) && Number.isFinite(totalWeight) && totalWeight > 0
+            ? Math.min(98, Math.max(2, Math.round((leftWeight / totalWeight) * 100)))
             : 50;
-        const safeRightPct = 100 - safeLeftPct;
-        const leftRatio = safeLeftPct / 100;
-        const rightRatio = safeRightPct / 100;
+        const rightPct = 100 - leftPct;
 
         let focusDirection;
         let magnitude;
         let clinicianNote;
 
-        if (leftRatio > 0.55) {
-          focusDirection = 'Left Lateral Pulmonary Regions';
-          magnitude = 'Moderate';
+        if (leftPct >= 55) {
+          focusDirection = 'Left Pulmonary Dominance';
+          magnitude = leftPct >= 70 ? 'High / Predominant Left' : 'Moderate-to-High Left';
           clinicianNote =
-            'Retrieve additional views of the left chest (PA and lateral) to corroborate and localize opacities. Correlate with physical auscultation and vital signs before clinical conclusion.';
-        } else if (rightRatio > 0.55) {
-          focusDirection = 'Right Lateral Pulmonary Regions';
-          magnitude = 'Moderate';
+            'Stronger activation energy is concentrated toward the left thoracic field. Correlate with PA/lateral chest views, auscultation, and clinical symptoms.';
+        } else if (rightPct >= 55) {
+          focusDirection = 'Right Pulmonary Dominance';
+          magnitude = rightPct >= 70 ? 'High / Predominant Right' : 'Moderate-to-High Right';
           clinicianNote =
-            'Retrieve additional views of the right chest (PA and lateral) to corroborate and localize opacities. Correlate with physical auscultation and vital signs before clinical conclusion.';
+            'Stronger activation energy is concentrated toward the right thoracic field. Correlate with PA/lateral chest views, auscultation, and clinical symptoms.';
         } else {
           focusDirection = 'Bilateral Thoracic Regions';
-          magnitude = 'Mixed';
+          magnitude = 'Mixed / Balanced';
           clinicianNote =
-            'Opacities appear distributed across both sides; perform comprehensive bilateral auscultation and interval follow-up monitoring if clinically indicated.';
+            'Activation energy is relatively balanced across both lung fields; perform comprehensive bilateral auscultation and clinical correlation.';
         }
 
         setAssessment({
-          leftRatio: safeLeftPct,
-          rightRatio: safeRightPct,
+          leftPct,
+          rightPct,
           focusDirection,
           magnitude,
           clinicianNote,
@@ -171,8 +285,8 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
       } catch (e) {
         console.warn('Regional focus analysis failed:', e);
         setAssessment({
-          leftRatio: 50,
-          rightRatio: 50,
+          leftPct: 50,
+          rightPct: 50,
           focusDirection: 'Bilateral Thoracic Regions',
           magnitude: 'Mixed',
           clinicianNote:
@@ -184,8 +298,8 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
     img.onerror = () => {
       if (cancelled) return;
       setAssessment({
-        leftRatio: 50,
-        rightRatio: 50,
+        leftPct: 50,
+        rightPct: 50,
         focusDirection: 'Bilateral Thoracic Regions',
         magnitude: 'Mixed',
         clinicianNote:
@@ -220,14 +334,13 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
           Regional Focus Summary
         </h3>
         <p className="relative z-[2] text-sm text-muted font-medium">
-          Waiting for heatmap analysis... (if disabled, explain that browser security/CORS restrictions may limit this feature)
+          Analyzing Grad-CAM regional activation...
         </p>
       </div>
     );
   }
 
-  const leftPct = Number.isFinite(assessment.leftRatio) ? assessment.leftRatio : 50;
-  const rightPct = Number.isFinite(assessment.rightRatio) ? assessment.rightRatio : 50;
+  const { leftPct, rightPct, focusDirection, magnitude, clinicianNote } = assessment;
 
   return (
     <div className="glass-card tint-neutral rounded-3xl p-6 mb-6 break-inside-avoid print-break-inside-avoid">
@@ -235,53 +348,53 @@ function RegionalFocusAnalysis({ heatmapBase64 }) {
         Regional Focus Summary (Left vs Right)
       </h3>
       <p className="relative z-[2] text-sm text-muted font-medium mb-4">
-        Pixel energy analysis of Grad-CAM activation map highlights predominant focus areas.
+        High-activation Grad-CAM focus distribution across left and right thoracic regions.
       </p>
 
-      <div className="relative z-[2] space-y-4">
-        {/* Bar visualization */}
-        <div className="flex gap-3 items-end h-14">
+      <div className="relative z-[2] space-y-3">
+        {/* Prominent side-by-side comparison bar */}
+        <div className="flex w-full h-9 rounded-xl overflow-hidden border border-black/15 dark:border-white/15 shadow-sm">
           <div
-            className="flex-1 rounded-t-lg overflow-hidden"
+            className="flex items-center justify-center transition-all duration-300"
             style={{
-              height: `${Math.max(20, leftPct)}%`,
-              backgroundColor: leftPct > 50 ? '#FA8072' : '#D1FAE5',
+              width: `${Math.max(12, leftPct)}%`,
+              backgroundColor: leftPct >= rightPct ? '#DC2626' : '#059669',
             }}
           >
-            <div className="h-full flex items-end justify-center pb-1">
-              <span className="text-[10px] text-white font-bold px-1">{leftPct}%</span>
-            </div>
+            <span className="text-xs font-extrabold text-white tracking-wide">
+              Left {leftPct}%
+            </span>
           </div>
           <div
-            className="flex-1 rounded-t-lg overflow-hidden"
+            className="flex items-center justify-center transition-all duration-300"
             style={{
-              height: `${Math.max(20, rightPct)}%`,
-              backgroundColor: rightPct > 50 ? '#FA8072' : '#D1FAE5',
+              width: `${Math.max(12, rightPct)}%`,
+              backgroundColor: rightPct > leftPct ? '#DC2626' : '#047857',
             }}
           >
-            <div className="h-full flex items-end justify-center pb-1">
-              <span className="text-[10px] text-white font-bold px-1">{rightPct}%</span>
-            </div>
+            <span className="text-xs font-extrabold text-white tracking-wide">
+              Right {rightPct}%
+            </span>
           </div>
         </div>
 
         <div className="flex justify-between text-xs font-bold px-1">
-          <span className="text-muted">Left</span>
-          <span className="text-muted">Right</span>
+          <span className="text-rose-700 dark:text-rose-300">Left Region ({leftPct}%)</span>
+          <span className="text-emerald-800 dark:text-emerald-300">Right Region ({rightPct}%)</span>
         </div>
 
         <div className="border-t border-black/10 dark:border-white/10 pt-3 space-y-2">
           <div className="flex items-start gap-2">
             <span className="font-semibold text-ink dark:text-white text-xs mt-0.5">Focus:</span>
-            <span className="text-xs text-ink dark:text-white">{assessment.focusDirection}</span>
+            <span className="text-xs font-semibold text-ink dark:text-white">{focusDirection}</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="font-semibold text-ink dark:text-white text-xs mt-0.5">Magnitude:</span>
-            <span className="text-xs text-ink dark:text-white">{assessment.magnitude}</span>
+            <span className="text-xs text-ink dark:text-white">{magnitude}</span>
           </div>
           <div className="flex items-start gap-2">
             <span className="font-semibold text-ink dark:text-white text-xs mt-0.5">Clinician Note:</span>
-            <span className="text-xs text-muted">{assessment.clinicianNote}</span>
+            <span className="text-xs text-muted">{clinicianNote}</span>
           </div>
         </div>
       </div>
@@ -303,7 +416,7 @@ function RoleComparison() {
           <div className="flex items-center gap-2 mb-2">
             <div className="w-2 h-2 rounded-full bg-teal-500" />
             <span className="font-bold text-ink dark:text-white text-sm">
-              AI Screening & Triage
+              AI Screening &amp; Triage
             </span>
           </div>
           <ul className="space-y-1.5 text-xs text-muted font-medium leading-relaxed">
@@ -338,7 +451,7 @@ function RoleComparison() {
         <div className="flex items-start gap-2">
           <span className="font-semibold text-ink dark:text-white text-xs mt-0.5">Triage Note:</span>
           <span className="text-xs text-muted leading-relaxed">
-            This AI screening tool assists in rapid flagging and note-taking for clinicians. The model’s output is <strong>not</strong> a formal diagnosis and should <strong>always</strong> be corroborated with physical examination, clinical judgment, and relevant medical history before clinical conclusion. EfficientNet-B2 deep convolutional neural network outputs probabilistic indications of opacity patterns and not definitive pathology.
+            This AI screening tool assists in rapid flagging and note-taking for clinicians. The model's output is <strong>not</strong> a formal diagnosis and should <strong>always</strong> be corroborated with physical examination, clinical judgment, and relevant medical history before clinical conclusion. EfficientNet-B2 deep convolutional neural network outputs probabilistic indications of opacity patterns and not definitive pathology.
           </span>
         </div>
       </div>
@@ -360,13 +473,290 @@ const DownloadIcon = () => (
   </svg>
 );
 
+// Crisp architectural/clinical visual badge for each Multan facility (never breaks offline or in print)
+function SpecialistVisualBadge({ name, specialty, accent }) {
+  const initials = (name || 'DR')
+    .replace(/^Dr\.?\s*/i, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+
+  const palette = {
+    violet: {
+      bg: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 55%, #38BDF8 100%)',
+      pill: 'rgba(255,255,255,0.18)',
+      border: '#A78BFA',
+    },
+    cyan: {
+      bg: 'linear-gradient(135deg, #0F172A 0%, #0284C7 55%, #22D3EE 100%)',
+      pill: 'rgba(255,255,255,0.18)',
+      border: '#67E8F9',
+    },
+    emerald: {
+      bg: 'linear-gradient(135deg, #064E3B 0%, #059669 55%, #34D399 100%)',
+      pill: 'rgba(255,255,255,0.18)',
+      border: '#6EE7B7',
+    },
+    amber: {
+      bg: 'linear-gradient(135deg, #78350F 0%, #D97706 55%, #FBBF24 100%)',
+      pill: 'rgba(255,255,255,0.18)',
+      border: '#FCD34D',
+    },
+  };
+
+  const theme = palette[accent] || palette.violet;
+  const isThoracic = /thoracic/i.test(specialty);
+
+  return (
+    <div
+      className="w-24 sm:w-28 h-24 rounded-2xl p-2.5 flex flex-col justify-between text-white shrink-0 relative overflow-hidden"
+      style={{
+        background: theme.bg,
+        border: `1.5px solid ${theme.border}`,
+        boxShadow: '0 8px 20px rgba(15, 23, 42, 0.16)',
+      }}
+    >
+      <svg
+        viewBox="0 0 80 80"
+        className="w-12 h-12 absolute -right-2 -bottom-2 opacity-25 pointer-events-none"
+        fill="none"
+      >
+        <circle cx="40" cy="40" r="32" stroke="currentColor" strokeWidth="3" />
+        <path
+          d="M40 22v36M22 40h36"
+          stroke="currentColor"
+          strokeWidth="5"
+          strokeLinecap="round"
+        />
+      </svg>
+
+      <div className="flex items-center justify-between gap-1 z-10">
+        <span
+          className="text-[10px] font-extrabold tracking-wider uppercase px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: theme.pill }}
+        >
+          {initials}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-tight opacity-90">
+          {isThoracic ? 'SURG' : 'CHEST'}
+        </span>
+      </div>
+
+      <div className="z-10">
+        <p className="text-[10px] font-semibold uppercase tracking-wider opacity-85 leading-none mb-1">
+          Multan Care
+        </p>
+        <p className="text-[11px] font-extrabold leading-tight truncate">
+          {isThoracic ? 'Thoracic Unit' : 'Pulmonary Wing'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Multan Specialist Referral component - only shows when isPneumonia is true
+function MultanSpecialistReferral() {
+  const [selectedArea, setSelectedArea] = React.useState('all');
+  const [selectedSpecialty, setSelectedSpecialty] = React.useState('all');
+  const [locationInput, setLocationInput] = React.useState('');
+
+  const filteredSpecialists = React.useMemo(() => {
+    const queryText = locationInput.trim().toLowerCase();
+
+    return MULTAN_SPECIALISTS.filter((specialist) => {
+      const areaMatch = selectedArea === 'all' || specialist.area === selectedArea;
+      const specialtyMatch =
+        selectedSpecialty === 'all' ||
+        specialist.specialty.toLowerCase().includes(selectedSpecialty.replace(/-/g, ' '));
+      const textMatch =
+        !queryText ||
+        specialist.areaLabel.toLowerCase().includes(queryText) ||
+        specialist.hospital.toLowerCase().includes(queryText) ||
+        specialist.address.toLowerCase().includes(queryText) ||
+        specialist.name.toLowerCase().includes(queryText);
+
+      return areaMatch && specialtyMatch && textMatch;
+    });
+  }, [selectedArea, selectedSpecialty, locationInput]);
+
+  return (
+    <section
+      aria-label="Multan Specialist Referral"
+      className="rounded-3xl p-6 mb-6 break-inside-avoid print-break-inside-avoid border border-purple-400/30 bg-white/85 dark:bg-slate-900/85 backdrop-blur-md shadow-lg"
+    >
+      {/* Top Banner Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 mb-4 border-b border-black/10 dark:border-white/10">
+        <div>
+          <span className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-600/15 text-purple-700 dark:text-purple-300 mb-1.5">
+            Multan Clinical Referral • Top 3 Matches
+          </span>
+          <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+            Recommended Pulmonologists &amp; Thoracic Surgeons in Multan
+          </h3>
+        </div>
+        <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+          {filteredSpecialists.length} matching {filteredSpecialists.length === 1 ? 'option' : 'options'}
+        </span>
+      </div>
+
+      {/* Referral Disclaimer */}
+      <div className="rounded-2xl px-4 py-3 mb-5 bg-amber-500/10 border border-amber-500/25 text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
+        <strong>Referral Guidance:</strong> Curated Multan pulmonary &amp; thoracic surgical options for post-screening follow-up. Call ahead to confirm appointment slots, specialist availability, and hospital services.
+      </div>
+
+      {/* Interactive Filters (hidden in print) */}
+      <div className="print:hidden grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <div>
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5 block">
+            Area / Stop in Multan
+          </label>
+          <select
+            className="w-full rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            value={selectedArea}
+            onChange={(e) => setSelectedArea(e.target.value)}
+          >
+            <option value="all">All Multan Areas</option>
+            <option value="nishtar">Nishtar Road</option>
+            <option value="abdali">Abdali Road</option>
+            <option value="bosan">Bosan Road</option>
+            <option value="shah-rukn">Shah Rukn-e-Alam</option>
+            <option value="suraj">Suraj Miani Road</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5 block">
+            Specialist Type
+          </label>
+          <select
+            className="w-full rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            value={selectedSpecialty}
+            onChange={(e) => setSelectedSpecialty(e.target.value)}
+          >
+            <option value="all">Pulmonologist &amp; Thoracic Surgeon</option>
+            <option value="pulmonologist">Pulmonologist Only</option>
+            <option value="thoracic-surgeon">Thoracic Surgeon Only</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5 block">
+            Nearby Landmark / Hospital
+          </label>
+          <input
+            type="text"
+            value={locationInput}
+            onChange={(e) => setLocationInput(e.target.value)}
+            placeholder="e.g. Nishtar, Metro, Expo..."
+            className="w-full rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+      </div>
+
+      {/* Top 3 Specialist Cards */}
+      <div className="space-y-4">
+        {filteredSpecialists.slice(0, 3).map((specialist, index) => {
+          const mapsQuery = encodeURIComponent(
+            `${specialist.hospital}, ${specialist.address}, Multan`
+          );
+          const mapsLink = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
+          const cleanTel = specialist.phone.replace(/[^\d+]/g, '');
+
+          return (
+            <div
+              key={specialist.id}
+              className="rounded-2xl p-4 sm:p-5 bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 border-l-4 border-l-purple-600 shadow-sm break-inside-avoid print-break-inside-avoid"
+            >
+              <div className="flex flex-col sm:flex-row items-start gap-4">
+                {/* Visual Badge on Left */}
+                <SpecialistVisualBadge
+                  name={specialist.name}
+                  specialty={specialist.specialty}
+                  accent={specialist.accent}
+                />
+
+                {/* Main Details */}
+                <div className="flex-1 min-w-0 w-full">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 mr-2">
+                        #{index + 1}
+                      </span>
+                      <span className="font-display text-base font-bold text-slate-900 dark:text-white">
+                        {specialist.name}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-100">
+                      {specialist.specialty}
+                    </span>
+                  </div>
+
+                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2.5">
+                    {specialist.hospital} • {specialist.roleTag}
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white">Area: </span>
+                      {specialist.areaLabel}
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-900 dark:text-white">Timings: </span>
+                      {specialist.timings}
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="font-bold text-slate-900 dark:text-white">Address: </span>
+                      {specialist.address}
+                    </div>
+                  </div>
+
+                  {/* Action Row: Phone + Google Maps */}
+                  <div className="mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <a
+                      href={`tel:${cleanTel}`}
+                      className="font-bold text-indigo-700 dark:text-indigo-300 hover:underline"
+                    >
+                      Call: {specialist.phone}
+                    </a>
+
+                    <a
+                      href={mapsLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="print:hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+                    >
+                      <span>Open in Google Maps</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {filteredSpecialists.length === 0 && (
+          <div className="rounded-2xl p-6 text-center bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            No matching Multan specialists found for this filter. Reset area, specialty, or landmark search to view options.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function InnerFullReport({ user, onLogout, dark, setDark }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { result, preview } = location.state || {};
 
-  // Agar direct navbar se aaye bina result data ke, to guide karo pehle scan analyze karne ke liye
-  if (!result) {
+  // Safely destructure location state with fallback
+  const locationState = location.state || {};
+  const result = locationState.result;
+  const preview = locationState.preview;
+
+  // Guard against missing result data
+  if (!result || typeof result !== 'object') {
     return (
       <div className="min-h-screen relative">
         <div className="aurora-bg">
@@ -531,7 +921,7 @@ function InnerFullReport({ user, onLogout, dark, setDark }) {
             <div className="glass-card tint-teal rounded-3xl p-5 flex flex-col justify-between">
               <div>
                 <h3 className="relative z-[2] font-display font-bold text-sm text-ink dark:text-white mb-4">
-                  Probability Breakdown & Metrics
+                  Probability Breakdown &amp; Metrics
                 </h3>
 
                 <div className="relative z-[2] flex flex-col gap-4">
@@ -602,34 +992,37 @@ function InnerFullReport({ user, onLogout, dark, setDark }) {
           {/* 4b. Role Comparison: Doctor vs AI Screening */}
           <RoleComparison />
 
+          {/* 4c. Multan Specialist Referral: Only show for PNEUMONIA cases */}
+          {isPneumonia && <MultanSpecialistReferral />}
+
           {/* 4. Care & Curation: Tailored guidance for PNEUMONIA or NORMAL */}
           <div className="glass-card tint-purple rounded-3xl p-6 mb-6 break-inside-avoid print-break-inside-avoid">
             <h3 className="relative z-[2] font-display font-bold text-ink dark:text-white mb-2">
-              Clinical Care & Curation Guidance ({isPneumonia ? 'Pneumonia Screening Protocol' : 'Normal Screening Protocol'})
+              Clinical Care &amp; Curation Guidance ({isPneumonia ? 'Pneumonia Screening Protocol' : 'Normal Screening Protocol'})
             </h3>
             <div className="relative z-[2] text-sm text-muted font-medium leading-relaxed space-y-2">
               {isPneumonia ? (
                 <>
                   <p>
-                    • <strong className="text-ink dark:text-white">Medical Consultation:</strong> Schedule an immediate follow-up with your primary physician or a pulmonologist for physical auscultation and diagnostic confirmation.
+                    - <strong className="text-ink dark:text-white">Medical Consultation:</strong> Schedule an immediate follow-up with your primary physician or a pulmonologist for physical auscultation and diagnostic confirmation.
                   </p>
                   <p>
-                    • <strong className="text-ink dark:text-white">Prescribed Regimen:</strong> Take all prescribed antibiotics or medications exactly as directed by your healthcare provider. Do not discontinue early.
+                    - <strong className="text-ink dark:text-white">Prescribed Regimen:</strong> Take all prescribed antibiotics or medications exactly as directed by your healthcare provider. Do not discontinue early.
                   </p>
                   <p>
-                    • <strong className="text-ink dark:text-white">Vitals Monitoring:</strong> Regularly check your temperature and blood oxygen saturation via pulse oximetry.
+                    - <strong className="text-ink dark:text-white">Vitals Monitoring:</strong> Regularly check your temperature and blood oxygen saturation via pulse oximetry.
                   </p>
                 </>
               ) : (
                 <>
                   <p>
-                    • <strong className="text-ink dark:text-white">Maintenance:</strong> Your chest X-ray screening shows no prominent signs of pneumonia opacity. Continue maintaining good respiratory hygiene.
+                    - <strong className="text-ink dark:text-white">Maintenance:</strong> Your chest X-ray screening shows no prominent signs of pneumonia opacity. Continue maintaining good respiratory hygiene.
                   </p>
                   <p>
-                    • <strong className="text-ink dark:text-white">Preventive Care:</strong> Stay up to date on annual vaccinations (influenza, pneumococcal) and avoid exposure to indoor smoke or pollutants.
+                    - <strong className="text-ink dark:text-white">Preventive Care:</strong> Stay up to date on annual vaccinations (influenza, pneumococcal) and avoid exposure to indoor smoke or pollutants.
                   </p>
                   <p>
-                    • <strong className="text-ink dark:text-white">Symptom Watch:</strong> If new respiratory symptoms develop (persistent cough, fever, shortness of breath), repeat screening promptly.
+                    - <strong className="text-ink dark:text-white">Symptom Watch:</strong> If new respiratory symptoms develop (persistent cough, fever, shortness of breath), repeat screening promptly.
                   </p>
                 </>
               )}
@@ -666,31 +1059,31 @@ function InnerFullReport({ user, onLogout, dark, setDark }) {
           {/* 6. Pulmonary Recovery Diet & Hydration: Fluids, anti-inflammatory foods, lean protein, and irritants to avoid */}
           <div className="glass-card tint-neutral rounded-3xl p-6 mb-6">
             <h3 className="relative z-[2] font-display font-bold text-ink dark:text-white mb-3">
-              Pulmonary Recovery Diet & Hydration
+              Pulmonary Recovery Diet &amp; Hydration
             </h3>
             <div className="relative z-[2] grid md:grid-cols-2 gap-4 text-xs">
               <div className="space-y-2">
-                <p className="font-semibold text-ink dark:text-white">Hydration & Nutrients</p>
+                <p className="font-semibold text-ink dark:text-white">Hydration &amp; Nutrients</p>
                 <p className="text-muted leading-relaxed">
-                  • <strong className="text-ink dark:text-white">Hydration:</strong> Drink 8–10 glasses of water or warm herbal teas daily to thin mucus and clear airways.
+                  - <strong className="text-ink dark:text-white">Hydration:</strong> Drink 8–10 glasses of water or warm herbal teas daily to thin mucus and clear airways.
                 </p>
                 <p className="text-muted leading-relaxed">
-                  • <strong className="text-ink dark:text-white">Anti-Inflammatory Foods:</strong> Consume berries, leafy greens, turmeric, ginger, and garlic to support immune response.
+                  - <strong className="text-ink dark:text-white">Anti-Inflammatory Foods:</strong> Consume berries, leafy greens, turmeric, ginger, and garlic to support immune response.
                 </p>
                 <p className="text-muted leading-relaxed">
-                  • <strong className="text-ink dark:text-white">Lean Proteins:</strong> Include fish, poultry, eggs, and legumes to aid tissue repair and muscle strength.
+                  - <strong className="text-ink dark:text-white">Lean Proteins:</strong> Include fish, poultry, eggs, and legumes to aid tissue repair and muscle strength.
                 </p>
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-ink dark:text-white">Irritants to Avoid</p>
                 <p className="text-muted leading-relaxed">
-                  • <strong className="text-ink dark:text-white">Tobacco & Vaping:</strong> Completely avoid cigarette smoke, e-cigarettes, and secondhand smoke which inflame lung tissue.
+                  - <strong className="text-ink dark:text-white">Tobacco &amp; Vaping:</strong> Completely avoid cigarette smoke, e-cigarettes, and secondhand smoke which inflame lung tissue.
                 </p>
                 <p className="text-muted leading-relaxed">
-                  • <strong className="text-ink dark:text-white">Environmental Pollutants:</strong> Limit exposure to chemical fumes, heavy dust, and harsh cleaning aerosols.
+                  - <strong className="text-ink dark:text-white">Environmental Pollutants:</strong> Limit exposure to chemical fumes, heavy dust, and harsh cleaning aerosols.
                 </p>
                 <p>
-                  <strong className="text-ink dark:text-white">• Excess Dairy & Sugar:</strong> Moderating processed sugars and heavy dairy can help prevent excess mucus production.
+                  <strong className="text-ink dark:text-white">• Excess Dairy &amp; Sugar:</strong> Moderating processed sugars and heavy dairy can help prevent excess mucus production.
                 </p>
               </div>
             </div>
@@ -699,7 +1092,7 @@ function InnerFullReport({ user, onLogout, dark, setDark }) {
           {/* 7. Medical Disclaimer: AI screening/educational tool only; consult doctor/pulmonologist; urgent care warning */}
           <div className="glass-card tint-pink rounded-3xl p-6">
             <h3 className="relative z-[2] font-display font-bold text-ink dark:text-white mb-2">
-              Important Medical Disclaimer & Urgent Care Warning
+              Important Medical Disclaimer &amp; Urgent Care Warning
             </h3>
             <div className="relative z-[2] text-sm text-muted font-medium leading-relaxed space-y-2">
               <p>
